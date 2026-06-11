@@ -1,7 +1,10 @@
 {
   "name": "day1-onchain-hello",
   "version": "1.0.0",
-  "description": "",
+  "description": "Hackcamp Day 1 - On-chain Hello World",
+  "engines": {
+    "node": ">=20"
+  },
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -15,6 +18,7 @@
     "viem": "^2.52.2"
   },
   "devDependencies": {
+    "@types/node": "^25.9.2",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3"
   }

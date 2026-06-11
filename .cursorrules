@@ -1,0 +1,20 @@
+# HACKCAMP — Cursor 项目规则
+
+## 文档入口与主线
+
+1. **项目入口**：以 `day1-onchain-hello/README.MD` 为起点理解本仓库的组织方式与维护约定。
+2. **开发计划主线**：`day1-onchain-hello/spec/rules.md` 是仓库级开发规范与当前主线计划，所有实现决策须优先对齐该文档。
+3. **文档产出位置**：规划、规范、变更记录等文档**默认写入** `day1-onchain-hello/spec/` 目录（必要时可在其下新建子文件，如 `spec/logs/`）。
+
+## 工作流
+
+- 开始任务前：先读 `day1-onchain-hello/README.MD`，再读 `day1-onchain-hello/spec/rules.md` 中与当前任务相关的章节。
+- 计划或规范变更：更新 `day1-onchain-hello/spec/rules.md`；多文件改动时在 `day1-onchain-hello/spec/logs/` 追加 changelog。
+- 代码实现：在对应 Day 子项目的 `src/` 下开发；技术栈、安全边界、自主决策范围以 `spec/rules.md` 为准。
+- 引用其他文档时：`day2/liquidityforge-plan.md`、`day2/product-research.md` 等作为支线参考，不得与 `spec/rules.md` 冲突；冲突时以 `spec/rules.md` 为准。
+
+## 简要约束
+
+- TypeScript strict、viem 2.x、tsx 直接运行；敏感信息仅 `.env`，提交 `.env.example`。
+- 默认 Paper 模式；Live / 主网 / 新第三方 API / 调大单笔上限须先请示。
+- 最小化 diff，不改无关文件；不写用户未请求的文档或测试。
