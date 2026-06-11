@@ -1,0 +1,3 @@
+[submodule "polymarket-clob"]
+	path = polymarket-clob
+	url = https://github.com/Polymarket/clob-client-v2.git

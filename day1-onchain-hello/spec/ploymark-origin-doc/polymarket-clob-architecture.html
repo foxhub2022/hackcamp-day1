@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Polymarket CLOB Client V2 Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" integrity="sha384-en/ztfPSRkGfME4KIm05joYXynqzUgbsG5nMrj/xEFAHXkeZfO3yMK8QQ+mP7p1/" crossorigin="anonymous"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      background: #020617;
+      min-height: 100vh;
+      padding: 2rem;
+      color: white;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .header { margin-bottom: 2rem; }
+    .header-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.5rem;
+    }
+    .pulse-dot {
+      width: 12px; height: 12px;
+      background: #22d3ee;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.025em; }
+    .subtitle { color: #94a3b8; font-size: 0.875rem; margin-left: 1.75rem; }
+    .diagram-container {
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: 1rem;
+      border: 1px solid #1e293b;
+      padding: 1.5rem;
+      overflow-x: auto;
+    }
+    svg { width: 100%; min-width: 900px; display: block; }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+    .card {
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: 0.75rem;
+      border: 1px solid #1e293b;
+      padding: 1.25rem;
+    }
+    .card-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .card-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .card-dot.cyan { background: #22d3ee; }
+    .card-dot.emerald { background: #34d399; }
+    .card-dot.violet { background: #a78bfa; }
+    .card-dot.amber { background: #fbbf24; }
+    .card-dot.rose { background: #fb7185; }
+    .card h3 { font-size: 0.875rem; font-weight: 600; }
+    .card ul { list-style: none; color: #94a3b8; font-size: 0.75rem; }
+    .card li { margin-bottom: 0.375rem; }
+    .footer { text-align: center; margin-top: 1.5rem; color: #475569; font-size: 0.75rem; }
+    .toolbar {
+      display: flex; gap: 0.5rem; margin-left: auto; flex-shrink: 0; align-items: center;
+    }
+    .toolbar-toggle {
+      background: transparent; border: none; color: #475569; cursor: pointer;
+      font-size: 1.25rem; line-height: 1; padding: 0.25rem 0.5rem; border-radius: 0.375rem;
+      transition: color 0.2s, background 0.2s;
+    }
+    .toolbar-toggle:hover { color: #94a3b8; background: rgba(30, 41, 59, 0.5); }
+    .toolbar-actions { display: none; gap: 0.5rem; }
+    .toolbar.expanded .toolbar-actions { display: flex; }
+    .toolbar-actions button {
+      background: rgba(30, 41, 59, 0.8); border: 1px solid #334155; color: #94a3b8;
+      padding: 0.375rem 0.75rem; border-radius: 0.375rem; font-family: inherit;
+      font-size: 0.75rem; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    }
+    .toolbar-actions button:hover {
+      background: rgba(51, 65, 85, 0.8); color: white; border-color: #475569;
+    }
+    @media print {
+      body { background: #020617; padding: 1rem; }
+      .toolbar { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="report-container">
+    <div class="header">
+      <div class="header-row">
+        <div class="pulse-dot"></div>
+        <h1>Polymarket CLOB Client V2 Architecture</h1>
+        <div class="toolbar">
+          <div class="toolbar-actions">
+            <button onclick="copyAsImage(this)">📋 Copy</button>
+            <button onclick="downloadPNG(this)">🖼️ PNG</button>
+            <button onclick="downloadPDF(this)">📄 PDF</button>
+          </div>
+          <button class="toolbar-toggle" onclick="this.parentElement.classList.toggle('expanded')" title="Export options" aria-label="Export options">⋯</button>
+        </div>
+      </div>
+      <p class="subtitle">@polymarket/clob-client-v2 · TypeScript SDK · submodule: polymarket-clob/</p>
+    </div>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 1000 780">
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#64748b" />
+          </marker>
+          <marker id="arrowhead-rose" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#fb7185" />
+          </marker>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+
+        <rect width="100%" height="100%" fill="url(#grid)" />
+
+        <!-- Arrows (drawn early, behind boxes) -->
+        <line x1="115" y1="290" x2="148" y2="290" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="132" y="284" fill="#94a3b8" font-size="8" text-anchor="middle">import</text>
+
+        <line x1="510" y1="150" x2="235" y2="198" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <line x1="510" y1="150" x2="490" y2="198" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <line x1="510" y1="150" x2="745" y2="198" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+        <line x1="235" y1="280" x2="235" y2="318" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <line x1="490" y1="280" x2="490" y2="318" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <line x1="745" y1="280" x2="745" y2="318" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+        <line x1="310" y1="240" x2="870" y2="215" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <text x="590" y="218" fill="#fbbf24" font-size="8" text-anchor="middle">axios REST (GET/POST/DELETE)</text>
+
+        <line x1="490" y1="400" x2="310" y2="240" stroke="#fb7185" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrowhead-rose)"/>
+        <text x="380" y="310" fill="#fb7185" font-size="8">L1/L2 headers</text>
+
+        <line x1="745" y1="400" x2="745" y2="438" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+        <path d="M 745 508 Q 745 560 870 560 L 935 560" fill="none" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#arrowhead-rose)"/>
+        <text x="820" y="548" fill="#fb7185" font-size="8">EIP-712 order sign</text>
+
+        <line x1="510" y1="150" x2="490" y2="478" stroke="#64748b" stroke-width="1" stroke-dasharray="4,4"/>
+        <line x1="510" y1="150" x2="745" y2="478" stroke="#64748b" stroke-width="1" stroke-dasharray="4,4"/>
+
+        <!-- SDK boundary -->
+        <rect x="148" y="50" width="704" height="560" rx="12" fill="rgba(251, 191, 36, 0.05)" stroke="#fbbf24" stroke-width="1" stroke-dasharray="8,4"/>
+        <text x="162" y="68" fill="#fbbf24" font-size="10" font-weight="600">SDK Core — polymarket-clob/src/</text>
+
+        <!-- External: User App -->
+        <rect x="25" y="260" width="90" height="60" rx="6" fill="#0f172a"/>
+        <rect x="25" y="260" width="90" height="60" rx="6" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="70" y="285" fill="white" font-size="11" font-weight="600" text-anchor="middle">User App</text>
+        <text x="70" y="301" fill="#94a3b8" font-size="9" text-anchor="middle">Bot / Script</text>
+
+        <!-- ClobClient facade -->
+        <rect x="420" y="80" width="180" height="70" rx="6" fill="#0f172a"/>
+        <rect x="420" y="80" width="180" height="70" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="510" y="108" fill="white" font-size="12" font-weight="600" text-anchor="middle">ClobClient</text>
+        <text x="510" y="124" fill="#94a3b8" font-size="9" text-anchor="middle">client.ts · Facade</text>
+        <text x="510" y="138" fill="#34d399" font-size="8" text-anchor="middle">1728+ lines · public API</text>
+
+        <!-- HTTP Layer -->
+        <rect x="160" y="200" width="150" height="80" rx="6" fill="#0f172a"/>
+        <rect x="160" y="200" width="150" height="80" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="235" y="228" fill="white" font-size="11" font-weight="600" text-anchor="middle">HTTP Layer</text>
+        <text x="235" y="244" fill="#94a3b8" font-size="9" text-anchor="middle">endpoints.ts</text>
+        <text x="235" y="258" fill="#94a3b8" font-size="9" text-anchor="middle">http-helpers/ · axios</text>
+        <text x="235" y="272" fill="#34d399" font-size="8" text-anchor="middle">70+ REST routes</text>
+
+        <!-- Auth Layer -->
+        <rect x="400" y="200" width="180" height="80" rx="6" fill="#0f172a"/>
+        <rect x="400" y="200" width="180" height="80" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="490" y="228" fill="white" font-size="11" font-weight="600" text-anchor="middle">Auth Layer</text>
+        <text x="490" y="244" fill="#94a3b8" font-size="9" text-anchor="middle">headers/ · L1 + L2</text>
+        <text x="490" y="258" fill="#94a3b8" font-size="9" text-anchor="middle">signing/eip712 · hmac</text>
+        <text x="490" y="272" fill="#fb7185" font-size="8" text-anchor="middle">wallet + API key</text>
+
+        <!-- Order Layer -->
+        <rect x="670" y="200" width="160" height="80" rx="6" fill="#0f172a"/>
+        <rect x="670" y="200" width="160" height="80" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="750" y="228" fill="white" font-size="11" font-weight="600" text-anchor="middle">Order Layer</text>
+        <text x="750" y="244" fill="#94a3b8" font-size="9" text-anchor="middle">order-builder/</text>
+        <text x="750" y="258" fill="#94a3b8" font-size="9" text-anchor="middle">OrderBuilder class</text>
+        <text x="750" y="272" fill="#34d399" font-size="8" text-anchor="middle">limit + market orders</text>
+
+        <!-- HTTP sub -->
+        <rect x="160" y="320" width="150" height="70" rx="6" fill="#0f172a"/>
+        <rect x="160" y="320" width="150" height="70" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="235" y="345" fill="white" font-size="10" font-weight="600" text-anchor="middle">Route Constants</text>
+        <text x="235" y="360" fill="#94a3b8" font-size="8" text-anchor="middle">/markets /book /order</text>
+        <text x="235" y="374" fill="#94a3b8" font-size="8" text-anchor="middle">/auth/* /data/*</text>
+        <text x="235" y="384" fill="#fbbf24" font-size="7" text-anchor="middle">retry + error wrap</text>
+
+        <!-- Auth sub -->
+        <rect x="395" y="320" width="190" height="80" rx="6" fill="#0f172a"/>
+        <rect x="395" y="320" width="190" height="80" rx="6" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1.5"/>
+        <text x="490" y="345" fill="white" font-size="10" font-weight="600" text-anchor="middle">signing/</text>
+        <text x="490" y="360" fill="#94a3b8" font-size="8" text-anchor="middle">L1: ClobAuthDomain EIP-712</text>
+        <text x="490" y="374" fill="#94a3b8" font-size="8" text-anchor="middle">L2: HMAC-SHA256 (api secret)</text>
+        <text x="490" y="388" fill="#fb7185" font-size="8" text-anchor="middle">ClobSigner · viem/ethers</text>
+
+        <!-- Order sub: order-utils -->
+        <rect x="655" y="320" width="190" height="110" rx="6" fill="#0f172a"/>
+        <rect x="655" y="320" width="190" height="110" rx="6" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="750" y="345" fill="white" font-size="10" font-weight="600" text-anchor="middle">order-utils/</text>
+        <text x="750" y="360" fill="#94a3b8" font-size="8" text-anchor="middle">ExchangeOrderBuilderV1</text>
+        <text x="750" y="374" fill="#94a3b8" font-size="8" text-anchor="middle">ExchangeOrderBuilderV2/V3</text>
+        <text x="750" y="388" fill="#94a3b8" font-size="8" text-anchor="middle">model/ · abi/ Exchange ABIs</text>
+        <text x="750" y="402" fill="#94a3b8" font-size="8" text-anchor="middle">helpers/ price · rounding</text>
+        <text x="750" y="420" fill="#34d399" font-size="7" text-anchor="middle">SignedOrderV1/V2</text>
+
+        <!-- Support: config + types -->
+        <rect x="160" y="478" width="150" height="70" rx="6" fill="#0f172a"/>
+        <rect x="160" y="478" width="150" height="70" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="235" y="503" fill="white" font-size="10" font-weight="600" text-anchor="middle">config.ts</text>
+        <text x="235" y="518" fill="#94a3b8" font-size="8" text-anchor="middle">Polygon · Amoy</text>
+        <text x="235" y="532" fill="#94a3b8" font-size="8" text-anchor="middle">Exchange V1/V2/V3</text>
+        <text x="235" y="542" fill="#a78bfa" font-size="7" text-anchor="middle">negRisk contracts</text>
+
+        <rect x="395" y="478" width="190" height="70" rx="6" fill="#0f172a"/>
+        <rect x="395" y="478" width="190" height="70" rx="6" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="490" y="503" fill="white" font-size="10" font-weight="600" text-anchor="middle">types/</text>
+        <text x="490" y="518" fill="#94a3b8" font-size="8" text-anchor="middle">clob · ordersV1/V2/V3</text>
+        <text x="490" y="532" fill="#94a3b8" font-size="8" text-anchor="middle">unifiedOrder · ApiKeyCreds</text>
+        <text x="490" y="542" fill="#a78bfa" font-size="7" text-anchor="middle">fees/ · errors.ts</text>
+
+        <!-- index.ts export -->
+        <rect x="655" y="478" width="190" height="70" rx="6" fill="#0f172a"/>
+        <rect x="655" y="478" width="190" height="70" rx="6" fill="rgba(8, 51, 68, 0.4)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="750" y="503" fill="white" font-size="10" font-weight="600" text-anchor="middle">index.ts</text>
+        <text x="750" y="518" fill="#94a3b8" font-size="8" text-anchor="middle">Public exports</text>
+        <text x="750" y="532" fill="#94a3b8" font-size="8" text-anchor="middle">examples/ · tests/</text>
+        <text x="750" y="542" fill="#22d3ee" font-size="7" text-anchor="middle">vitest · tsdown build</text>
+
+        <!-- External: CLOB REST API -->
+        <rect x="870" y="180" width="115" height="70" rx="6" fill="#0f172a"/>
+        <rect x="870" y="180" width="115" height="70" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="928" y="205" fill="white" font-size="11" font-weight="600" text-anchor="middle">CLOB REST</text>
+        <text x="928" y="221" fill="#94a3b8" font-size="9" text-anchor="middle">Polymarket API</text>
+        <text x="928" y="237" fill="#fbbf24" font-size="8" text-anchor="middle">host configurable</text>
+
+        <!-- External: On-chain -->
+        <rect x="870" y="520" width="115" height="80" rx="6" fill="#0f172a"/>
+        <rect x="870" y="520" width="115" height="80" rx="6" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="928" y="545" fill="white" font-size="11" font-weight="600" text-anchor="middle">On-Chain</text>
+        <text x="928" y="561" fill="#94a3b8" font-size="8" text-anchor="middle">CTF Exchange V1/V2/V3</text>
+        <text x="928" y="575" fill="#94a3b8" font-size="8" text-anchor="middle">NegRisk · USDC · CTF</text>
+        <text x="928" y="590" fill="#fbbf24" font-size="7" text-anchor="middle">chainId 137 / 80002</text>
+
+        <!-- Auth flow annotation -->
+        <rect x="160" y="570" width="420" height="28" rx="4" fill="rgba(251, 146, 60, 0.3)" stroke="#fb923c" stroke-width="1"/>
+        <text x="370" y="588" fill="#fb923c" font-size="8" text-anchor="middle">Auth flow: L1 wallet sign → createOrDeriveApiKey → L2 HMAC on every authenticated request</text>
+
+        <!-- Legend (below SDK boundary at y=610) -->
+        <text x="160" y="640" fill="white" font-size="10" font-weight="600">Legend</text>
+        <rect x="160" y="648" width="16" height="10" rx="2" fill="rgba(6, 78, 59, 0.4)" stroke="#34d399" stroke-width="1"/>
+        <text x="182" y="656" fill="#94a3b8" font-size="8">Backend / SDK module</text>
+        <rect x="310" y="648" width="16" height="10" rx="2" fill="rgba(136, 19, 55, 0.4)" stroke="#fb7185" stroke-width="1"/>
+        <text x="332" y="656" fill="#94a3b8" font-size="8">Security / Auth</text>
+        <rect x="440" y="648" width="16" height="10" rx="2" fill="rgba(76, 29, 149, 0.4)" stroke="#a78bfa" stroke-width="1"/>
+        <text x="462" y="656" fill="#94a3b8" font-size="8">Config / Types</text>
+        <rect x="560" y="648" width="16" height="10" rx="2" fill="rgba(120, 53, 15, 0.3)" stroke="#fbbf24" stroke-width="1"/>
+        <text x="582" y="656" fill="#94a3b8" font-size="8">External / Cloud</text>
+        <rect x="700" y="648" width="16" height="10" rx="2" fill="rgba(30, 41, 59, 0.5)" stroke="#94a3b8" stroke-width="1"/>
+        <text x="722" y="656" fill="#94a3b8" font-size="8">Consumer</text>
+        <line x1="160" y1="672" x2="176" y2="672" stroke="#fb7185" stroke-width="1" stroke-dasharray="3,3"/>
+        <text x="182" y="675" fill="#94a3b8" font-size="8">Sign / Auth flow</text>
+        <rect x="310" y="664" width="16" height="10" rx="2" fill="transparent" stroke="#fbbf24" stroke-width="1" stroke-dasharray="3,3"/>
+        <text x="332" y="672" fill="#94a3b8" font-size="8">SDK boundary</text>
+      </svg>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot emerald"></div>
+          <h3>核心入口 ClobClient</h3>
+        </div>
+        <ul>
+          <li>• 单一 Facade，聚合 REST 调用、鉴权、下单全流程</li>
+          <li>• 构造时注入 host / chain / signer / creds</li>
+          <li>• 公开端点：getMarkets、getOrderBook、getPrice 等</li>
+          <li>• 交易端点：createAndPostOrder、cancelOrder、getTrades</li>
+          <li>• 内置 tickSize / negRisk / feeRates 缓存</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot rose"></div>
+          <h3>双层鉴权模型</h3>
+        </div>
+        <ul>
+          <li>• L1：钱包 EIP-712 签名（ClobAuthDomain）创建/派生 API Key</li>
+          <li>• L2：HMAC-SHA256 签名每个受保护 REST 请求</li>
+          <li>• headers/ 组装 POLY_* 请求头</li>
+          <li>• 支持 EOA / POLY_PROXY / POLY_1271 签名类型</li>
+          <li>• Builder API Key 用于 builder 费率与 trades</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-dot violet"></div>
+          <h3>订单构建与链上签名</h3>
+        </div>
+        <ul>
+          <li>• OrderBuilder → helpers/ 计算价格、数量、舍入</li>
+          <li>• 支持 Exchange V1/V2/V3 及 negRisk 合约路由</li>
+          <li>• ExchangeOrderBuilder 生成 EIP-712 Order 结构并签名</li>
+          <li>• 限价单 GTC/GTD + 市价单 FOK/FAK</li>
+          <li>• config.ts 维护 Polygon(137) / Amoy(80002) 合约地址</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="footer">
+      HACKCAMP · polymarket-clob submodule · archived 2026-06-11 · upstream: Polymarket/clob-client-v2 v1.0.6+
+    </p>
+  </div>
+
+  <script>
+    async function copyAsImage(btn) {
+      const orig = btn.textContent;
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        btn.textContent = '✓ Copied!';
+      } catch (e) {
+        btn.textContent = '✗ Failed';
+      }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+
+    async function downloadPNG(btn) {
+      const orig = btn.textContent;
+      btn.textContent = '⏳ ...';
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const link = document.createElement('a');
+        link.download = 'polymarket-clob-architecture.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        btn.textContent = '✓ Done!';
+      } catch (e) {
+        btn.textContent = '✗ Failed';
+      }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+
+    async function downloadPDF(btn) {
+      const orig = btn.textContent;
+      btn.textContent = '⏳ ...';
+      try {
+        const el = document.getElementById('report-container');
+        const r = el.getBoundingClientRect();
+        const pad = 32;
+        const canvas = await html2canvas(document.body, { backgroundColor: '#020617', scale: 2, useCORS: true, ignoreElements: (e) => e.classList && e.classList.contains('toolbar'), x: r.left + window.scrollX - pad, y: r.top + window.scrollY - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const imgData = canvas.toDataURL('image/png');
+        const { jsPDF } = window.jspdf;
+        const orientation = canvas.width > canvas.height ? 'landscape' : 'portrait';
+        const pdf = new jsPDF({ orientation, unit: 'px', format: [canvas.width, canvas.height], hotfixes: ['px_scaling'] });
+        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+        pdf.save('polymarket-clob-architecture.pdf');
+        btn.textContent = '✓ Done!';
+      } catch (e) {
+        btn.textContent = '✗ Failed';
+      }
+      setTimeout(() => btn.textContent = orig, 2000);
+    }
+  </script>
+</body>
+</html>
