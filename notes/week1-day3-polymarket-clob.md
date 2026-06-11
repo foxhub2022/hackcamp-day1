@@ -78,15 +78,5 @@ graph TD
 ## 7. 我的疑问 / 不确定的点
 
 1. **链上结算何时发生？** `POST /order` 之后订单进入 CLOB 订单簿，但撮合成交后的链上 `fill` / 资金划转完全在 SDK 黑盒之外——不清楚是 Relayer 批量上链还是逐笔结算，对 Paper/Live 风控建模有影响。
-
-2. **该用 submodule 还是 npm / ts-sdk？** 上游 README 已推荐 [Polymarket/ts-sdk](https://github.com/Polymarket/ts-sdk)，且 `clob-client-v2` 已 archived；HACKCAMP 运行时走 npm `@polymarket/clob-client-v2`，submodule 仅作读源码——LiquidityForge 接入时应跟哪个包、何时迁移，还没定。
-
-3. **Exchange V1/V2/V3 路由边界。** SDK 靠 `GET /version` + `negRisk` + `config.ts` 选合约地址，`_retryOnVersionUpdate` 最多重试 2 轮；若升级窗口内 version 与 negRisk 组合判断错了，错误是立即拒单还是 silent 签错 domain——还没实际跑通过。
-
-4. **挂单前是否必须先链上 approve？** SDK 有 `updateBalanceAllowance` / examples 里的 `approveAllowances`，但 `createAndPostOrder` 主路径不强制调用；不确定是服务端代查余额+ allowance，还是 Live 前必须自己先走一遍 examples 流程。
-
-5. **`deferExec` / `postOnly` 的实际语义。** 参数会进 `orderToJsonV2` 传给 REST，但文档较少；做市 bot 挂 GTC 双边单时，这些 flag 对撮合优先级、是否立即进簿的具体行为还不清楚。
-
-6. **POLY_1271（Deposit Wallet）何时需要？** V2 签名有 EOA 与嵌套 `TypedDataSign` 两条路径；普通 EOA 私钥 bot 是否永远走简单分支，Deposit Wallet 是 UI 用户专用还是 bot 也要支持——未验证。
-
+2. **Exchange V1/V2/V3 路由边界。** SDK 靠 `GET /version` + `negRisk` + `config.ts` 选合约地址，`_retryOnVersionUpdate` 最多重试 2 轮；若升级窗口内 version 与 negRisk 组合判断错了，错误是立即拒单还是 silent 签错 domain——还没实际跑通过。
 7. **L2 `secret` 在 bot 里的存放方式。** HMAC 密钥与钱包私钥同等敏感；Paper 模式 mock 好说，Live 时 env 注入、creds 轮换、多实例是否共享同一 API Key——工程上还没设计。
