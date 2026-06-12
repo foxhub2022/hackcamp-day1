@@ -1,6 +1,6 @@
 # Git Submodule 维护说明
 
-本仓库通过 **git submodule** 引用上游 Polymarket CLOB 客户端源码，作为本地只读参考，**运行时依赖仍通过 npm 安装 `@polymarket/clob-client-v2`**。
+本仓库通过 **git submodule** 引用上游 Polymarket 官方 TypeScript SDK 源码，作为本地只读参考。**业务代码运行时依赖仍通过 npm 安装对应包**（见各 Day 子项目 `package.json`）。
 
 ---
 
@@ -8,9 +8,11 @@
 
 | 目录 | 上游仓库 | 用途 |
 |------|----------|------|
-| `polymarket-clob/` | [Polymarket/clob-client-v2](https://github.com/Polymarket/clob-client-v2) | CLOB V2 TypeScript 客户端原始源码（examples、类型、实现参考） |
+| `ts-sdk/` | [Polymarket/ts-sdk](https://github.com/Polymarket/ts-sdk) | 统一 TS SDK monorepo（`packages/client`、`packages/types`、`examples/scripts` 等） |
 
-配置文件：仓库根目录 `.gitmodules`。
+配置文件：仓库根目录 [`.gitmodules`](../../.gitmodules)。
+
+> **迁移说明**：2026-06-12 起，`polymarket-clob/`（旧 [clob-client-v2](https://github.com/Polymarket/clob-client-v2)）已替换为本子模块。历史调研文档仍引用旧路径，阅读时注意对照 [packages/client](https://github.com/Polymarket/ts-sdk/tree/main/packages/client)。
 
 ---
 
@@ -18,11 +20,11 @@
 
 | 字段 | 值 |
 |------|-----|
-| 路径 | `polymarket-clob/` |
-| 提交 | `d28dacdaed9e6ba29c013de588113fad3a20c4f2` |
-| 简述 | `feat: support ExchangeV3 order signing (#79)` |
-| 日期 | 2026-06-05 |
-| 相对标签 | `v1.0.6` 之后 2 commit |
+| 路径 | `ts-sdk/` |
+| 提交 | `58a81a7d46aacbb74f05810268652cdd759ca7c6` |
+| 简述 | `Merge pull request #124 from Polymarket/fix/dev-263-empty-string-icons` |
+| 分支 | `main` |
+| 日期 | 2026-06-11 |
 
 > 父仓库只记录上述 commit SHA；更新上游后须在父仓库 commit 新的 SHA，并更新本表。
 
@@ -30,11 +32,11 @@
 
 ## 默认行为：clone 时不下载
 
-普通克隆父仓库时，**不会**自动拉取子模块内容，`polymarket-clob/` 为空目录占位。
+普通克隆父仓库时，**不会**自动拉取子模块内容，`ts-sdk/` 为空目录占位。
 
 ```bash
 git clone <HACKCAMP-repo-url>
-# polymarket-clob/ 此时无源码
+# ts-sdk/ 此时无源码
 ```
 
 需要源码时再初始化（见下文「首次拉取」）。
@@ -57,10 +59,10 @@ git clone --recurse-submodules <HACKCAMP-repo-url>
 git submodule update --init --recursive
 ```
 
-仅初始化 `polymarket-clob`（浅克隆，省流量）：
+仅初始化 `ts-sdk`（浅克隆，省流量）：
 
 ```bash
-git submodule update --init --depth 1 polymarket-clob
+git submodule update --init --depth 1 ts-sdk
 ```
 
 ### 查看状态
@@ -73,46 +75,46 @@ git submodule status
 ### 进入子模块只读浏览
 
 ```bash
-cd polymarket-clob
+cd ts-sdk
 git log -5 --oneline
-ls examples/
+ls packages/client/
+ls examples/scripts/
 ```
 
-**不要在子模块目录内直接改代码并 push**——这里是上游镜像，改动应在 HACKCAMP 业务代码（如 `day2/liquidityforge/`）中进行。
+**不要在子模块目录内直接改代码并 push**——这里是上游镜像，改动应在 HACKCAMP 业务代码（如 `day2/`、`day1-onchain-hello/src/`）中进行。
 
 ### 更新到上游最新 main
 
 ```bash
-cd polymarket-clob
+cd ts-sdk
 git fetch origin
 git checkout main
 git pull origin main
 cd ..
-git add polymarket-clob
-git commit -m "chore: bump polymarket-clob submodule"
+git add ts-sdk
+git commit -m "chore: bump ts-sdk submodule"
 ```
 
-更新后同步修改本文件「当前锁定版本」表，并在 `spec/logs/` 追加 changelog。
+更新后同步修改本文件「当前锁定版本」表，并在 `spec/logs/submodules-changelog.md` 追加 changelog。
 
-### 更新到指定 tag / commit
+### 更新到指定 commit
 
 ```bash
-cd polymarket-clob
-git fetch --tags origin
-git checkout v1.0.6   # 或任意 commit
+cd ts-sdk
+git fetch origin
+git checkout <commit-sha>
 cd ..
-git add polymarket-clob
-git commit -m "chore: pin polymarket-clob to v1.0.6"
+git add ts-sdk
+git commit -m "chore: pin ts-sdk to <commit-sha>"
 ```
 
 ### 删除子模块（ rarely ）
 
 ```bash
-git submodule deinit -f polymarket-clob
-git rm -f polymarket-clob
-rm -rf .git/modules/polymarket-clob
-# 手动编辑 .gitmodules 若 git rm 未清理干净
-git commit -m "chore: remove polymarket-clob submodule"
+git submodule deinit -f ts-sdk
+git rm -f ts-sdk
+rm -rf .git/modules/ts-sdk
+git commit -m "chore: remove ts-sdk submodule"
 ```
 
 ---
@@ -121,8 +123,8 @@ git commit -m "chore: remove polymarket-clob submodule"
 
 | 方式 | 场景 |
 |------|------|
-| `npm install @polymarket/clob-client-v2` | **业务代码 import**，打包与运行 |
-| `polymarket-clob/` 子模块 | 阅读 `examples/`、对照源码、hackathon 期间快速查 API |
+| npm 安装 Polymarket 官方包 | **业务代码 import**，打包与运行 |
+| `ts-sdk/` 子模块 | 阅读 `packages/client`、`examples/scripts`、对照源码、hackathon 期间快速查 API |
 
 两者版本不必完全一致，但重大 API 变更时建议 submodule 与 `package.json` 版本对齐。
 
@@ -130,4 +132,4 @@ git commit -m "chore: remove polymarket-clob submodule"
 
 ## 变更记录
 
-见 `spec/logs/submodules-changelog.md`。
+见 [`spec/logs/submodules-changelog.md`](logs/submodules-changelog.md)。
